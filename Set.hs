@@ -2,6 +2,7 @@ module Set(Set(..), empty, null, singleton, union, fromList
               , member, toList, toAscList, elems
               ) where
 import Prelude hiding(null)
+import Data.List (sort)
 
 data Set a = Empty
            | Singleton a
@@ -20,7 +21,7 @@ null set = False
 member :: Eq a => a -> Set a -> Bool
 member elem Empty = False
 member elem (Singleton x) = x == elem
-member elem (Union x y) = member elem x && member elem y
+member elem (Union x y) = member elem x || member elem y
 
 -- Returns a singleton of a given element O(1)
 singleton :: a -> Set a
@@ -32,29 +33,45 @@ fromList = foldl (flip insert) Empty
 
 -- Returns a list with elements of set's O(n)
 toList :: Set a -> [a]
-toList Empty = []
-toList (Singleton x) = [x]
-toList (Union x y) = toList x ++ toList y
+toList = toListAux [] 
+  where
+    toListAux :: [a] -> Set a -> [a]
+    toListAux acc Empty = acc  
+    toListAux acc (Singleton x) = x:acc  
+    toListAux acc (Union x y) = toListAux (toListAux acc x) y  
 
 -- Returns a sorted lists of set's elements O(n*logn)
 toAscList :: Ord a => Set a -> [a]
--- toAscList set = sort $ toList set 
-toAscList set = undefined
+toAscList set = Data.List.sort(toList set)
+    -- auxSort :: Ord a => [a] -> [a]
+    -- auxSort [] = []
+    -- auxSort (x:xs) = auxSort (filter (<=x) xs)
+    --     ++ [x] 
+    --     ++ auxSort (filter (>x) xs)
 
 -- alias for toList
 elems :: Set a -> [a]
 elems = toList
 
 union :: Set a -> Set a -> Set a
-union fst (Union x y) = union (fst `union` x) y
 union fst Empty = fst
-union fst (Singleton x) = Union fst (Singleton x)
+union Empty snd = snd
+union fst snd = Union fst snd
 
 insert :: a -> Set a -> Set a
-insert elem = Union (Singleton elem)
+insert elem = union (Singleton elem)
 
 instance Ord a => Eq (Set a) where
-  (==) fst snd = foldl (\acc x -> acc && member x fst) False (toList snd)
+  (==) fst snd = auxEq (toAscList fst) (toAscList snd)
+    where
+      removeAllHead :: Ord a => [a] -> a -> [a]
+      removeAllHead [] _ = []
+      removeAllHead (x:xs) el = if x /= el then x:xs else removeAllHead xs el
+      auxEq :: Ord a => [a] -> [a] -> Bool 
+      auxEq [] [] = True 
+      auxEq [] _ = False
+      auxEq _ [] = False
+      auxEq (x:xs) (y:ys) = (x == y) && auxEq (removeAllHead xs x) (removeAllHead ys x)
 
 instance Semigroup (Set a) where
   (<>) = union

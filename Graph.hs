@@ -1,6 +1,6 @@
 module Graph where
 import Set(Set)
-import qualified Set as Set
+import qualified Set
 class Graph g where
   empty   :: g a
   vertex  :: a -> g a
