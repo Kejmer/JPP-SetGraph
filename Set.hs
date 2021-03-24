@@ -62,16 +62,16 @@ insert :: a -> Set a -> Set a
 insert elem = union (Singleton elem)
 
 instance Ord a => Eq (Set a) where
-  (==) fst snd = auxEq (toAscList fst) (toAscList snd)
+  (==) fst snd = include (toAscList fst) (toAscList snd)
     where
       removeAllHead :: Ord a => [a] -> a -> [a]
       removeAllHead [] _ = []
       removeAllHead (x:xs) el = if x /= el then x:xs else removeAllHead xs el
-      auxEq :: Ord a => [a] -> [a] -> Bool 
-      auxEq [] [] = True 
-      auxEq [] _ = False
-      auxEq _ [] = False
-      auxEq (x:xs) (y:ys) = (x == y) && auxEq (removeAllHead xs x) (removeAllHead ys x)
+      include :: Ord a => [a] -> [a] -> Bool 
+      include [] [] = True 
+      include [] _ = False
+      include _ [] = False
+      include (x:xs) (y:ys) = (x == y) && include (removeAllHead xs x) (removeAllHead ys x)
 
 instance Semigroup (Set a) where
   (<>) = union
