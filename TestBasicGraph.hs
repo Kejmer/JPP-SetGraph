@@ -67,7 +67,7 @@ instance (Arbitrary a) => Arbitrary (Basic a) where
     arb 1 = vertex <$> arbitrary
     arb n = oneof [ union <$> arb2 <*> arb2
                   , connect <$> arb' <*> arb'] where
-      arb2 = arb (div n 2)
+      arb2 = arb (div n 4)
       arb' = arb (intSqrt n)
       intSqrt :: Int -> Int
       intSqrt = round . sqrt . fromIntegral

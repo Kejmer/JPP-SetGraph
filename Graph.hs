@@ -1,6 +1,7 @@
 module Graph where
 import Set(Set)
 import qualified Set
+import Data.List (sort)
 
 class Graph g where
   empty   :: g a
@@ -16,6 +17,11 @@ data Basic a = Empty
              | Union (Basic a) (Basic a)
              | Connect (Basic a) (Basic a)
 
+-- źródło https://stackoverflow.com/questions/16108714/removing-duplicates-from-a-list-in-haskell-without-elem?fbclid=IwAR1yPj39c2CR6hCKuf4sk93d7NHfILimuh0yhfmNEt1tDeqbJLPvQzrvQWY
+removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates = foldl (\seen x -> if x `elem` seen
+                                      then seen
+                                      else seen ++ [x]) []
 
 bipartie :: [a] -> [a] -> Set (a, a)
 bipartie xs ys = foldl (\acc x -> Set.union (bipartieAux x ys) acc) Set.empty xs
@@ -35,7 +41,6 @@ instance Graph Relation where
     relation = Set.union (Set.union r1 r2) (bipartie (Set.toList d1) (Set.toList d2))
   }
 
-
 instance (Ord a, Num a) => Num (Relation a) where
     fromInteger = vertex . fromInteger
     (+)         = union
@@ -51,24 +56,23 @@ instance Graph Basic where
     union = Union
     connect = Connect
 
-removeRepetition :: Ord a => Set a -> Set a
-removeRepetition set = Set.fromList $ Set.toAscList set
+basicDomain :: Ord a => Basic a -> [a]
+basicDomain g = Data.List.sort $ removeDuplicates $ basicDomainAux g
+basicDomainAux :: Ord a => Basic a -> [a]
+basicDomainAux Empty = []
+basicDomainAux (Vertex x) = [x]
+basicDomainAux (Union x y) = basicDomainAux x ++ basicDomainAux y
+basicDomainAux (Connect x y) = basicDomainAux x ++ basicDomainAux y
 
-basicDomain :: Ord a => Basic a -> Set a
-basicDomain g = removeRepetition $ basicDomainAux g
-basicDomainAux :: Ord a => Basic a -> Set a
-basicDomainAux Empty = Set.empty
-basicDomainAux (Vertex x) = Set.singleton x
-basicDomainAux (Union x y) = basicDomainAux x `Set.union` basicDomainAux y
-basicDomainAux (Connect x y) = basicDomainAux x `Set.union` basicDomainAux y
-
-basicRelation :: Ord a => Basic a -> Set (a,a)
-basicRelation g = removeRepetition $ basicRelationAux g
-basicRelationAux :: Ord a => Basic a -> Set (a,a)
-basicRelationAux Empty = Set.empty
-basicRelationAux (Vertex x) = Set.empty
-basicRelationAux (Union x y) = basicRelationAux x `Set.union` basicRelationAux y
-basicRelationAux (Connect x y) = basicRelationAux x `Set.union` basicRelationAux y `Set.union` bipartie (Set.toList $ basicDomain x) (Set.toList $ basicDomain y)
+basicRelation :: Ord a => Basic a -> [(a,a)]
+basicRelation g = Data.List.sort $ removeDuplicates $ basicRelationAux g
+basicRelationAux :: Ord a => Basic a -> [(a,a)]
+basicRelationAux Empty = []
+basicRelationAux (Vertex x) = []
+basicRelationAux (Union x y) = basicRelationAux x ++ basicRelationAux y
+basicRelationAux (Connect x y) = basicRelationAux x
+                              ++ basicRelationAux y
+                              ++ Set.toList (bipartie (basicDomain x) (basicDomain y))
 
 instance Ord a => Eq (Basic a) where
     (==) fst snd = basicRelation fst == basicRelation snd && basicDomain fst == basicDomain snd
@@ -96,27 +100,18 @@ fromBasic (Connect x y) = fromBasic x `connect` fromBasic y
 unusedVerticies :: Ord a => Basic a -> [a]
 unusedVerticies g = diffrence (flatten $ basicRelation g) (basicDomain g)
 
-diffrence :: Ord a => Set a -> Set a -> [a]
-diffrence rel dom = Set.toAscList $ foldl (diffrenceAux rel) Set.empty (Set.toList dom)
-diffrenceAux :: Ord a => Set a -> Set a -> a -> Set a
+diffrence :: Ord a => [a] -> [a] -> [a]
+diffrence rel dom = Data.List.sort $ foldl (diffrenceAux rel) [] dom
+diffrenceAux :: Ord a => [a] -> [a] -> a -> [a]
 diffrenceAux rel acc el
-  | Set.member el acc = acc
-  | not (Set.member el rel) = acc `Set.union` Set.singleton el
+  | el `elem` acc = acc
+  | el `notElem` rel = el:acc
   | otherwise = acc
-flatten :: Ord a => Set (a,a) -> Set a
-flatten set = Set.fromList $ Set.toAscList $ foldl flattenAux Set.empty (Set.toList set)
-flattenAux :: Ord a => Set a -> (a,a) -> Set a
-flattenAux set (x,y) = set `Set.union` Set.singleton x `Set.union` Set.singleton y
-  -- let set' = if Set.member x set
-  --     then set
-  --     else set `Set.union` Set.singleton x in
-  -- if Set.member y set'
-  --   then set'
-  --   else set' `Set.union` Set.singleton y
-
+flatten :: Ord a => [(a,a)] -> [a]
+flatten list = Data.List.sort $ removeDuplicates $ foldl (\acc (x,y) -> x:y:acc) [] list
 
 instance (Ord a, Show a) => Show (Basic a) where
-    show g = let first = "edges " ++ show (Set.toAscList (basicRelation g)) in
+    show g = let first = "edges " ++ show (basicRelation g) in
       let second = " + verticies " ++ show (unusedVerticies g) in
       first ++ second
 -- | Example graph
@@ -130,7 +125,7 @@ todot :: (Ord a, Show a) => Basic a -> String
 todot g = "digraph {\n" ++ relationAux g ++ verticiesAux g ++ "}\n"
   where
     relationAux :: (Ord a, Show a) => Basic a -> String
-    relationAux g = foldl arrow "" (Set.toAscList $ basicRelation g)
+    relationAux g = foldl arrow "" (basicRelation g)
     verticiesAux :: (Ord a, Show a) => Basic a -> String
     verticiesAux g = foldl (\acc x -> acc ++ show x ++ "\n") "" (unusedVerticies g)
     arrow :: Show a => String -> (a,a) -> String
@@ -160,16 +155,16 @@ instance Applicative Basic where
 
 instance Monad Basic where
   return = vertex
-  Empty >>= f = empty 
-  (Vertex v) >>= f = f v 
-  (Union a b) >>= f = (a >>= f) `union` (b >>= f) 
-  (Connect a b) >>= f = (a >>= f) `connect` (b >>= f) 
+  Empty >>= f = empty
+  (Vertex v) >>= f = f v
+  (Union a b) >>= f = (a >>= f) `union` (b >>= f)
+  (Connect a b) >>= f = (a >>= f) `connect` (b >>= f)
 -- | Split Vertex
 -- >>> splitV 34 3 4 (mergeV 3 4 34 example34)
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]
 
 splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
-splitV x y z g = g >>= (\v -> if v == x 
-                                then vertex y `union` vertex z 
+splitV x y z g = g >>= (\v -> if v == x
+                                then vertex y `union` vertex z
                                 else vertex x)
 
