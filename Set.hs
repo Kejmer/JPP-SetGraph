@@ -40,14 +40,14 @@ toList = toListAux []
     toListAux acc (Singleton x) = x:acc  
     toListAux acc (Union x y) = toListAux (toListAux acc x) y  
 
+-- źródło https://stackoverflow.com/questions/16108714/removing-duplicates-from-a-list-in-haskell-without-elem?fbclid=IwAR1yPj39c2CR6hCKuf4sk93d7NHfILimuh0yhfmNEt1tDeqbJLPvQzrvQWY
+removeDuplicates :: Eq a => [a] -> [a]
+removeDuplicates = foldl (\seen x -> if x `elem` seen
+                                      then seen
+                                      else seen ++ [x]) []
 -- Returns a sorted lists of set's elements O(n*logn)
 toAscList :: Ord a => Set a -> [a]
-toAscList set = Data.List.sort(toList set)
-    -- auxSort :: Ord a => [a] -> [a]
-    -- auxSort [] = []
-    -- auxSort (x:xs) = auxSort (filter (<=x) xs)
-    --     ++ [x] 
-    --     ++ auxSort (filter (>x) xs)
+toAscList set = Data.List.sort(removeDuplicates $ toList set)
 
 -- alias for toList
 elems :: Set a -> [a]
