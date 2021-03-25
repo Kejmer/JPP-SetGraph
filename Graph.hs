@@ -49,7 +49,6 @@ instance (Ord a, Num a) => Num (Relation a) where
     abs         = id
     negate      = id
 
-
 instance Graph Basic where
     empty = Empty
     vertex = Vertex
@@ -57,22 +56,22 @@ instance Graph Basic where
     connect = Connect
 
 basicDomain :: Ord a => Basic a -> [a]
-basicDomain g = Data.List.sort $ removeDuplicates $ basicDomainAux g
-basicDomainAux :: Ord a => Basic a -> [a]
-basicDomainAux Empty = []
-basicDomainAux (Vertex x) = [x]
-basicDomainAux (Union x y) = basicDomainAux x ++ basicDomainAux y
-basicDomainAux (Connect x y) = basicDomainAux x ++ basicDomainAux y
+basicDomain g = Data.List.sort $ removeDuplicates $ Set.toList $ basicDomainAux g
+basicDomainAux :: Ord a => Basic a -> Set a
+basicDomainAux Empty = Set.empty
+basicDomainAux (Vertex x) = Set.singleton x
+basicDomainAux (Union x y) = basicDomainAux x `Set.union` basicDomainAux y
+basicDomainAux (Connect x y) = basicDomainAux x `Set.union` basicDomainAux y
 
 basicRelation :: Ord a => Basic a -> [(a,a)]
-basicRelation g = Data.List.sort $ removeDuplicates $ basicRelationAux g
-basicRelationAux :: Ord a => Basic a -> [(a,a)]
-basicRelationAux Empty = []
-basicRelationAux (Vertex x) = []
-basicRelationAux (Union x y) = basicRelationAux x ++ basicRelationAux y
+basicRelation g = Data.List.sort $ removeDuplicates $ Set.toList $ basicRelationAux g
+basicRelationAux :: Ord a => Basic a -> Set (a,a)
+basicRelationAux Empty = Set.empty
+basicRelationAux (Vertex x) = Set.empty
+basicRelationAux (Union x y) = basicRelationAux x `Set.union` basicRelationAux y
 basicRelationAux (Connect x y) = basicRelationAux x
-                              ++ basicRelationAux y
-                              ++ Set.toList (bipartie (basicDomain x) (basicDomain y))
+                      `Set.union` basicRelationAux y
+                      `Set.union` bipartie (basicDomain x) (basicDomain y)
 
 instance Ord a => Eq (Basic a) where
     (==) fst snd = basicRelation fst == basicRelation snd && basicDomain fst == basicDomain snd
@@ -112,7 +111,7 @@ flatten list = Data.List.sort $ removeDuplicates $ foldl (\acc (x,y) -> x:y:acc)
 
 instance (Ord a, Show a) => Show (Basic a) where
     show g = let first = "edges " ++ show (basicRelation g) in
-      let second = " + verticies " ++ show (unusedVerticies g) in
+      let second = " + vertices " ++ show (unusedVerticies g) in
       first ++ second
 -- | Example graph
 -- >>> example34
@@ -142,9 +141,7 @@ instance Functor Basic where
 -- edges [(1,2),(2,34),(34,5)] + vertices [17]
 
 mergeV :: Eq a => a -> a -> a -> Basic a -> Basic a
-mergeV x y z = fmap (mergeVAux x y z)
-mergeVAux :: Eq a => a -> a -> a -> a -> a
-mergeVAux x y z v = if (v == x) || (v == y) then z else v
+mergeV x y z = fmap (\v -> if (v == x) || (v == y) then z else v)
 
 instance Applicative Basic where
   pure x = vertex x
@@ -166,5 +163,4 @@ instance Monad Basic where
 splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
 splitV x y z g = g >>= (\v -> if v == x
                                 then vertex y `union` vertex z
-                                else vertex x)
-
+                                else vertex v)

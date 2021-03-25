@@ -19,9 +19,9 @@ null set = False
 
 -- Check if elem is a member of set O(set size)
 member :: Eq a => a -> Set a -> Bool
-member elem Empty = False
-member elem (Singleton x) = x == elem
-member elem (Union x y) = member elem x || member elem y
+member el Empty = False
+member el (Singleton x) = x == el
+member el (Union x y) = member el x || member el y
 
 -- Returns a singleton of a given element O(1)
 singleton :: a -> Set a
@@ -45,7 +45,7 @@ removeDuplicates :: Eq a => [a] -> [a]
 removeDuplicates = foldl (\seen x -> if x `elem` seen
                                       then seen
                                       else seen ++ [x]) []
-                                      
+
 -- Returns a sorted lists of set's elements O(n*logn)
 toAscList :: Ord a => Set a -> [a]
 toAscList set = Data.List.sort $ removeDuplicates $ toList set
