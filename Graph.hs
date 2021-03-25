@@ -156,15 +156,20 @@ instance Applicative Basic where
   Empty <*> _ = empty
   (Vertex f) <*> g = fmap f g
   (Union f f') <*> g = (f <*> g) `union` (f' <*> g)
-  (Connect f f') <*> g = (f <*> g) `union` (f' <*> g)
+  (Connect f f') <*> g = (f <*> g) `connect` (f' <*> g)
 
 instance Monad Basic where
   return = vertex
-  g >>= f  = empty 
+  Empty >>= f = empty 
+  (Vertex v) >>= f = f v 
+  (Union a b) >>= f = (a >>= f) `union` (b >>= f) 
+  (Connect a b) >>= f = (a >>= f) `connect` (b >>= f) 
 -- | Split Vertex
 -- >>> splitV 34 3 4 (mergeV 3 4 34 example34)
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]
 
 splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
-splitV = undefined
+splitV x y z g = g >>= (\v -> if v == x 
+                                then vertex y `union` vertex z 
+                                else vertex x)
 
