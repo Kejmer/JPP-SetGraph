@@ -17,15 +17,16 @@ data Basic a = Empty
              | Union (Basic a) (Basic a)
              | Connect (Basic a) (Basic a)
 
--- źródło https://stackoverflow.com/questions/16108714/removing-duplicates-from-a-list-in-haskell-without-elem?fbclid=IwAR1yPj39c2CR6hCKuf4sk93d7NHfILimuh0yhfmNEt1tDeqbJLPvQzrvQWY
+-- source https://stackoverflow.com/questions/16108714/removing-duplicates-from-a-list-in-haskell-without-elem?fbclid=IwAR1yPj39c2CR6hCKuf4sk93d7NHfILimuh0yhfmNEt1tDeqbJLPvQzrvQWY
+-- Returns a list with unique elements 
 removeDuplicates :: Eq a => [a] -> [a]
 removeDuplicates = foldl (\seen x -> if x `elem` seen
                                       then seen
                                       else seen ++ [x]) []
 
+-- Returns a bipart relation set of two lists
 bipartie :: [a] -> [a] -> Set (a, a)
 bipartie xs ys = foldl (\acc x -> Set.union (bipartieAux x ys) acc) Set.empty xs
-
 bipartieAux :: a -> [a] -> Set (a, a)
 bipartieAux x = foldl (\acc y -> Set.union acc (Set.singleton(x, y))) Set.empty
 
@@ -55,6 +56,7 @@ instance Graph Basic where
     union = Union
     connect = Connect
 
+-- Returns domain of a graph as a list
 basicDomain :: Ord a => Basic a -> [a]
 basicDomain g = Data.List.sort $ removeDuplicates $ Set.toList $ basicDomainAux g
 basicDomainAux :: Ord a => Basic a -> Set a
@@ -63,6 +65,7 @@ basicDomainAux (Vertex x) = Set.singleton x
 basicDomainAux (Union x y) = basicDomainAux x `Set.union` basicDomainAux y
 basicDomainAux (Connect x y) = basicDomainAux x `Set.union` basicDomainAux y
 
+-- Returns edges of a graph as a list of pairs
 basicRelation :: Ord a => Basic a -> [(a,a)]
 basicRelation g = Data.List.sort $ removeDuplicates $ Set.toList $ basicRelationAux g
 basicRelationAux :: Ord a => Basic a -> Set (a,a)
@@ -90,15 +93,18 @@ instance Semigroup (Basic a) where
 instance Monoid (Basic a) where
   mempty = Empty
 
+-- Converts any Basic graph into any instance of Graph
 fromBasic :: Graph g => Basic a -> g a
 fromBasic Empty = empty
 fromBasic (Vertex x) = vertex x
 fromBasic (Union x y) = fromBasic x `union` fromBasic y
 fromBasic (Connect x y) = fromBasic x `connect` fromBasic y
 
+-- Returns a list of verticies that aren't part of any edges
 unusedVerticies :: Ord a => Basic a -> [a]
 unusedVerticies g = diffrence (flatten $ basicRelation g) (basicDomain g)
 
+-- Given two lists returns elements that are in first list but aren't in the second one
 diffrence :: Ord a => [a] -> [a] -> [a]
 diffrence rel dom = Data.List.sort $ foldl (diffrenceAux rel) [] dom
 diffrenceAux :: Ord a => [a] -> [a] -> a -> [a]
@@ -106,20 +112,23 @@ diffrenceAux rel acc el
   | el `elem` acc = acc
   | el `notElem` rel = el:acc
   | otherwise = acc
-flatten :: Ord a => [(a,a)] -> [a]
-flatten list = Data.List.sort $ removeDuplicates $ foldl (\acc (x,y) -> x:y:acc) [] list
+
+-- Given a list of pairs converts it into list of unique single elements
+flatten :: Eq a => [(a,a)] -> [a]
+flatten list = removeDuplicates $ foldl (\acc (x,y) -> x:y:acc) [] list
 
 instance (Ord a, Show a) => Show (Basic a) where
     show g = let first = "edges " ++ show (basicRelation g) in
       let second = " + vertices " ++ show (unusedVerticies g) in
       first ++ second
+
 -- | Example graph
 -- >>> example34
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]
-
 example34 :: Basic Int
 example34 = 1*2 + 2*(3+4) + (3+4)*5 + 17
 
+-- Visualization format
 todot :: (Ord a, Show a) => Basic a -> String
 todot g = "digraph {\n" ++ relationAux g ++ verticiesAux g ++ "}\n"
   where
@@ -140,6 +149,7 @@ instance Functor Basic where
 -- >>> mergeV 3 4 34 example34
 -- edges [(1,2),(2,34),(34,5)] + vertices [17]
 
+-- Returns a graph that have given verticies merged into a third one
 mergeV :: Eq a => a -> a -> a -> Basic a -> Basic a
 mergeV x y z = fmap (\v -> if (v == x) || (v == y) then z else v)
 
@@ -156,10 +166,12 @@ instance Monad Basic where
   (Vertex v) >>= f = f v
   (Union a b) >>= f = (a >>= f) `union` (b >>= f)
   (Connect a b) >>= f = (a >>= f) `connect` (b >>= f)
+
 -- | Split Vertex
 -- >>> splitV 34 3 4 (mergeV 3 4 34 example34)
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]
 
+-- Clones and verticies with edges and relabels both of the verticies and relations
 splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
 splitV x y z g = g >>= (\v -> if v == x
                                 then vertex y `union` vertex z
